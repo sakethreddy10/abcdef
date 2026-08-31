@@ -107,3 +107,5 @@ class VectorStoreService:
         self._client.delete_collection(collection_name)
         self._collection = self._client.get_or_create_collection(name=collection_name, metadata={'hnsw:space': 'cosine'})
         logger.info(f"Collection '{collection_name}' cleared and recreated.")
+
+# Code update

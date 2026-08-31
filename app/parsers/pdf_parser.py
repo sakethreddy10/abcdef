@@ -54,3 +54,5 @@ class PDFParser(BaseParser):
 
 def parse_pdf(file_path: str, bucket: str) -> list[dict]:
     return PDFParser().parse(file_path, bucket)
+
+# Code update

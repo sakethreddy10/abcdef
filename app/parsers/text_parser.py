@@ -26,3 +26,5 @@ class TextParser(BaseParser):
 
 def parse_text(file_path: str, bucket: str) -> list[dict]:
     return TextParser().parse(file_path, bucket)
+
+# Code update

@@ -20,3 +20,5 @@ class EmbeddingService:
 
     def embed_one(self, text: str) -> list[float]:
         return self.embed([text])[0]
+
+# Code update

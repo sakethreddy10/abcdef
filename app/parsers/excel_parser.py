@@ -30,3 +30,5 @@ class ExcelParser(BaseParser):
 
     def parse_excel(file_path: str, bucket: str) -> list[dict]:
         return ExcelParser().parse(file_path, bucket)
+
+# Code update

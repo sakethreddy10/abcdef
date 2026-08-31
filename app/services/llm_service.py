@@ -66,3 +66,5 @@ class LLMService:
             raise RuntimeError(f'Ollama generation error: {e}') from e
         except Exception as e:
             raise ConnectionError(f"Could not connect to Ollama at '{self.base_url}'. Ensure Ollama is running (`ollama serve` or open the Ollama app). Error: {e}") from e
+
+# Code update

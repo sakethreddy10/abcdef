@@ -161,3 +161,5 @@ def stream_query_rag(payload: QueryRequest):
             logger.error(f'Streaming RAG query failed: {e}', exc_info=True)
             yield (json.dumps({'type': 'error', 'detail': f'Error executing RAG query: {e}'}) + '\n')
     return StreamingResponse(event_stream(), media_type='application/x-ndjson', headers={'Cache-Control': 'no-cache', 'X-Accel-Buffering': 'no'})
+
+# Code update

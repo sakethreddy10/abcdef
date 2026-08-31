@@ -46,3 +46,5 @@ class RetrievalService:
         for i, chunk in enumerate(chunks):
             logger.info(f"  [{i + 1}] source={chunk['source']} | page={chunk['page']} | bucket={chunk['bucket']} | distance={chunk.get('distance', 'N/A')} | text_preview={chunk['text'][:80].replace(chr(10), ' ')!r}")
         logger.info('─' * 40)
+
+# Code update

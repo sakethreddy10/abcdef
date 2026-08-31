@@ -23,3 +23,5 @@ def chunk_documents(documents: list[dict]) -> list[dict]:
             all_chunks.append({'text': chunk_text, 'source': source, 'page': doc['page'], 'file_type': doc['file_type'], 'bucket': doc['bucket'], 'chunk_index': index})
     logger.info(f'Total chunks produced: {len(all_chunks)}')
     return all_chunks
+
+# Code update

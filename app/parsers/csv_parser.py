@@ -25,3 +25,5 @@ class CSVParser(BaseParser):
 
 def parse_csv(file_path: str, bucket: str) -> list[dict]:
     return CSVParser().parse(file_path, bucket)
+
+# Code update

@@ -78,3 +78,5 @@ def ingest_directory_incremental(directory_path: str, bucket: str, vector_store)
             logger.error(f"Failed to ingest '{filename}': {e}")
     removed_sources = indexed_sources - current_sources
     return (documents, changed_sources, removed_sources)
+
+# Code update

@@ -39,3 +39,5 @@ class DocumentsStatsResponse(BaseModel):
     total_chunks: int
     collection_name: str
     embedding_dimension: int
+
+# Code update

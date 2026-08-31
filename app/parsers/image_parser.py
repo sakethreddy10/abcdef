@@ -34,3 +34,5 @@ class ImageParser(BaseParser):
 
 def parse_image(file_path: str, bucket: str) -> list[dict]:
     return ImageParser().parse(file_path, bucket)
+
+# Code update

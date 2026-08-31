@@ -68,3 +68,5 @@ class RAGService:
                 seen.add(key)
                 unique_sources.append({'document': chunk.get('source'), 'page': chunk.get('page'), 'bucket': chunk.get('bucket'), 'file_type': chunk.get('file_type')})
         return unique_sources
+
+# Code update

@@ -22,3 +22,5 @@ class DOCXParser(BaseParser):
 
 def parse_docx(file_path: str, bucket: str) -> list[dict]:
     return DOCXParser().parse(file_path, bucket)
+
+# Code update

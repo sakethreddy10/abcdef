@@ -19,3 +19,5 @@ RETRIEVAL_TOP_K: int = int(os.getenv('RETRIEVAL_TOP_K', '5'))
 RETRIEVAL_MAX_DISTANCE: float = float(os.getenv('RETRIEVAL_MAX_DISTANCE', '0.72'))
 BUCKET_1_PATH: str = os.getenv('BUCKET_1_PATH', './data/bucket_1')
 BUCKET_2_PATH: str = os.getenv('BUCKET_2_PATH', './data/bucket_2')
+
+# Code update
