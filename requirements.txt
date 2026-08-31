@@ -1,0 +1,41 @@
+# =============================================================================
+# Requirements
+# =============================================================================
+# Install all dependencies with:
+#   pip install -r requirements.txt
+#
+# Each library is explained inline so you know WHY it's here.
+# =============================================================================
+
+# ── API Framework ─────────────────────────────────────────────────────────────
+fastapi==0.115.0          # The web framework for our API layer
+python-multipart==0.0.12  # Parses multipart/form-data file uploads
+uvicorn[standard]==0.30.6  # ASGI server — runs the FastAPI app
+
+# ── Configuration ─────────────────────────────────────────────────────────────
+python-dotenv==1.0.1       # Loads .env files into os.environ
+
+# ── Document Parsing ──────────────────────────────────────────────────────────
+pymupdf==1.28.2           # PDF parsing (imported as "fitz")
+python-docx==1.1.2         # DOCX parsing
+pandas==2.2.3              # CSV and Excel data manipulation
+openpyxl==3.1.5            # Excel .xlsx engine (used by pandas)
+
+# ── Image / OCR ───────────────────────────────────────────────────────────────
+pillow==10.4.0             # Image file handling
+pytesseract==0.3.13        # Python wrapper around Tesseract OCR engine
+                           # NOTE: Tesseract itself must be installed separately:
+                           # https://github.com/UB-Mannheim/tesseract/wiki
+
+# ── Embeddings ────────────────────────────────────────────────────────────────
+sentence-transformers==3.1.1  # Loads embedding models locally
+                              # Configured through EMBEDDING_MODEL in .env
+
+# ── Vector Store ──────────────────────────────────────────────────────────────
+chromadb==0.5.18           # Local vector database for storing embeddings
+
+# ── LLM (Ollama) ──────────────────────────────────────────────────────────────
+ollama==0.3.3              # Python client for the local Ollama server
+
+# ── Data Validation ───────────────────────────────────────────────────────────
+pydantic==2.9.2            # FastAPI uses this for request/response schemas

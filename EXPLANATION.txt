@@ -1,0 +1,205 @@
+===============================================================================
+                       RAG PROJECT - FILE EXPLANATION GUIDE
+===============================================================================
+
+This document provides a comprehensive, organized explanation of what every single file 
+and module in this RAG (Retrieval-Augmented Generation) codebase does.
+
+-------------------------------------------------------------------------------
+1. APPLICATION ENTRY POINT & CONFIGURATION
+-------------------------------------------------------------------------------
+• app/main.py
+  - The entry point for the FastAPI web server.
+  - Initializes the FastAPI app instance, configures CORS middleware, registers 
+    API routes from app/api/routes.py, and sets up health check endpoints.
+
+• app/config.py
+  - Centralized application settings module.
+  - Loads environment variables from the .env file using python-dotenv.
+  - Configures paths, Ollama base URL and model name, ChromaDB persistent storage 
+    directory, embedding model choices, chunk sizes, and top-K retrieval parameters.
+
+• .env.example
+  - Template environment configuration file outlining required and optional settings.
+
+-------------------------------------------------------------------------------
+2. API & DATA MODELS
+-------------------------------------------------------------------------------
+• app/api/routes.py
+  - Defines all HTTP REST API endpoints using FastAPI:
+    * GET  /health          : Verifies server status.
+    * POST /ingest          : Ingests documents from specified directory buckets or file paths.
+    * POST /query           : Performs full RAG query (retrieval + LLM answer generation).
+    * POST /retrieve       : Performs chunk retrieval only (useful for testing/debugging).
+    * GET  /documents/stats : Returns current document count and vector store statistics.
+
+• app/models/schemas.py
+  - Pydantic models enforcing request and response data structures:
+    * IngestRequest, IngestResponse
+    * QueryRequest, QueryResponse, SourceCitation
+    * RetrieveRequest, RetrieveResponse
+    * HealthResponse, DocumentStatsResponse
+
+-------------------------------------------------------------------------------
+3. DOCUMENT PARSERS (app/parsers/)
+-------------------------------------------------------------------------------
+• app/parsers/pdf_parser.py
+  - Extracts text from PDF files page-by-page using PyMuPDF (fitz).
+  - Preserves page numbers and handles multi-page document structures.
+
+• app/parsers/base_parser.py
+  - Defines the common parse(file_path, bucket) interface for document parsers.
+  - PDF, DOCX, TXT, CSV, Excel, and image parsers inherit from BaseParser.
+
+• app/parsers/docx_parser.py
+  - Extracts paragraph text and table content from Microsoft Word (.docx) files using python-docx.
+
+• app/parsers/text_parser.py
+  - Reads standard plain text (.txt, .md) files using UTF-8 decoding with fallback handling.
+
+• app/parsers/csv_parser.py
+  - Parses comma-separated value (.csv) tabular files into structured text representations using pandas.
+
+• app/parsers/excel_parser.py
+  - Parses Excel spreadsheets (.xlsx, .xls) worksheet-by-worksheet using pandas and openpyxl.
+
+• app/parsers/image_parser.py
+  - Performs Optical Character Recognition (OCR) on image files (.png, .jpg, .jpeg) 
+    using Pillow (PIL) and pytesseract.
+
+-------------------------------------------------------------------------------
+4. CORE PIPELINE SERVICES (app/services/)
+-------------------------------------------------------------------------------
+• app/services/ingestion_service.py
+  - Detects file extensions and routes each document to the appropriate parser.
+  - Normalizes raw document output into standard dictionaries containing text, 
+    source filename, page number, file type, and bucket identifier.
+  - Incremental directory ingestion fingerprints files with SHA-256 and skips
+    unchanged files before parsing. Changed files replace their old chunks.
+
+• app/services/chunking_service.py
+  - Splits long normalized document texts into smaller, overlapping chunks.
+  - Implements a recursive sliding-window character chunker to preserve semantic context.
+
+• app/services/embedding_service.py
+  - Converts text chunks into dense 768-dimensional floating-point vector embeddings using the
+    Sentence-Transformers model ("BAAI/bge-base-en-v1.5").
+
+• app/services/vector_store_service.py
+  - Interacts with ChromaDB to persist vector embeddings and metadata on local disk.
+  - Handles storing new vectors, counting records, clearing collections, and executing 
+    filtered similarity searches.
+  - Uses deterministic document-based chunk IDs and stores document fingerprints
+    for duplicate prevention and incremental indexing.
+
+• app/services/retrieval_service.py
+  - Executes similarity search queries against ChromaDB and retrieves top_k x 2
+    vector candidates.
+  - Reranks those candidates with the local cross-encoder model
+    cross-encoder/ms-marco-MiniLM-L-2-v2 and returns the highest-ranked chunks.
+  - Applies bucket metadata filtering (e.g., bucket_1 vs bucket_2) to ensure strict 
+    data isolation between document domains.
+
+• app/services/llm_service.py
+  - Communicates with the local Ollama qwen2.5:7b instance via HTTP requests and supports streaming.
+  - Formats system and user prompts and handles LLM response generation.
+
+• app/services/rag_service.py
+  - High-level orchestrator connecting retrieval and LLM generation:
+    1. Receives natural language question + target bucket.
+    2. Retrieves top-K context chunks via retrieval_service.
+    3. Builds context-augmented prompt.
+    4. Sends prompt to llm_service.
+    5. Returns synthesized answer along with exact document & page source citations.
+
+-------------------------------------------------------------------------------
+5. TEST SUITE (tests/)
+-------------------------------------------------------------------------------
+• tests/test_pdf_parser.py
+  - Unit tests verifying standalone PDF parsing and page extraction.
+
+• tests/test_ingestion.py
+  - Integration tests verifying multi-format file routing and directory ingestion.
+
+• tests/test_chunking.py
+  - Tests verifying chunk size limits and overlap boundaries.
+
+• tests/test_retrieval.py
+  - Tests verifying vector storage, embedding generation, and bucket filtering accuracy.
+
+• tests/test_api.py
+  - End-to-end FastAPI endpoint test suite testing /health, /ingest, /retrieve, and /query.
+
+-------------------------------------------------------------------------------
+6. PROJECT ROOT FILES & DATA BUCKETS
+-------------------------------------------------------------------------------
+• requirements.txt
+  - Python dependency manifest (FastAPI, uvicorn, PyMuPDF, python-docx, pandas, 
+    pytesseract, sentence-transformers, chromadb, ollama, pytest, etc.).
+
+• README.md
+  - Complete project setup guide, architecture diagrams, API documentation, and phase guide.
+
+• .gitignore
+  - Excludes virtual environments (.venv), python bytecode (__pycache__), and vector store data.
+
+• data/bucket_1/ & data/bucket_2/
+  - Directory buckets for organizing input documents into distinct domains.
+
+-------------------------------------------------------------------------------
+7. EMBEDDINGS AND VECTOR STORAGE
+-------------------------------------------------------------------------------
+• app/services/embedding_service.py
+  - Loads the Sentence-Transformers model from EMBEDDING_MODEL.
+  - BAAI/bge-base-en-v1.5 converts text into 768 floating-point values called an embedding vector.
+  - embed() converts many text chunks during indexing.
+  - embed_one() converts one user question during retrieval.
+  - The model is loaded once when the API starts. Documents are not reparsed
+    or re-embedded for every question.
+
+• app/services/vector_store_service.py
+  - Uses chromadb.PersistentClient to store records locally.
+  - The default database directory is ./vectorstore, relative to the folder
+    from which Uvicorn was started.
+  - The default collection is rag_documents.
+  - Each record stores chunk text, its embedding vector, and metadata:
+    source, page, file_type, bucket, and chunk_index.
+  - Stable SHA-256-derived document IDs plus page/chunk indexes create stable
+    chunk IDs. Document fingerprints prevent unchanged files from being indexed
+    again, while changed files have their old source chunks deleted first.
+  - Cosine distance is used for similarity search. Lower distance is better.
+  - RETRIEVAL_MAX_DISTANCE (currently 0.62 in the local configuration) removes weak matches before the LLM
+    sees them.
+
+• Retrieval debugging
+  - GET /documents returns total stored chunk count and vector dimension.
+  - GET /documents/sources returns unique indexed filenames.
+  - GET /documents/chunks?limit=20 returns readable stored chunk text, IDs,
+    metadata, and counts. Add bucket=bucket_1 or source=filename to filter it.
+  - Add include_embeddings=true to /documents/chunks when the raw numeric
+    embedding vectors are needed for debugging.
+  - /documents/chunks lists stored records and does not apply question
+    similarity filtering. Similarity filtering applies only to POST /query.
+    Use /documents/chunks?source=research_summary.docx, not a path such as
+    /documents/chunks/research_summary.docx.
+  - The Uvicorn terminal logs embedding counts, stored counts, retrieved source
+    names, distances, and text previews.
+  - Run:
+    .\.venv\Scripts\python.exe -m pytest tests/test_retrieval.py tests/test_vector_store_ids.py -q
+  - Do not edit vectorstore files manually. Inspect retrieved text and distance
+    values instead; raw embedding numbers are not human-readable.
+
+• Failure handling
+  - Invalid buckets, missing folders, empty stores, invalid inspection limits,
+    and unavailable Ollama return clear HTTP errors.
+  - Unexpected parser, embedding, vector-store, and LLM errors are logged with
+    details in the Uvicorn terminal and returned as API error responses.
+
+-------------------------------------------------------------------------------
+8. QUERY-TIME FLOW
+-------------------------------------------------------------------------------
+For every question, the application embeds the question, searches ChromaDB for
+top_k x 2 candidates, filters by bucket and distance, reranks with a local
+CrossEncoder, and sends the best chunks to Ollama. Uploaded documents are
+parsed, chunked, embedded, and stored only when they are new or changed.
+===============================================================================

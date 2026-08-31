@@ -1,0 +1,199 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Local RAG Desk</title>
+  <style>
+    :root {
+      --ink: #17211b;
+      --muted: #667269;
+      --paper: #f4f1e9;
+      --panel: #fffdf8;
+      --line: #d9ded3;
+      --green: #245c49;
+      --green-dark: #174334;
+      --lime: #d6e85d;
+      --coral: #e77b5d;
+      --shadow: 0 18px 45px rgba(29, 48, 38, .10);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      color: var(--ink);
+      background: radial-gradient(circle at 8% 0%, #e3edcb 0, transparent 30%), var(--paper);
+      font: 15px/1.5 Georgia, 'Times New Roman', serif;
+    }
+    button, input, select { font: inherit; }
+    button { cursor: pointer; }
+    .shell { width: min(1180px, calc(100% - 36px)); margin: 0 auto; padding: 28px 0 54px; }
+    .topbar { display: flex; justify-content: space-between; align-items: center; gap: 18px; margin-bottom: 48px; }
+    .brand { display: flex; align-items: center; gap: 12px; font-weight: 700; letter-spacing: .02em; }
+    .mark { display: grid; place-items: center; width: 38px; height: 38px; color: var(--green-dark); background: var(--lime); border-radius: 50% 50% 50% 8px; font-family: Arial, sans-serif; font-weight: 900; }
+    .status { display: flex; align-items: center; gap: 8px; color: var(--muted); font-family: Arial, sans-serif; font-size: 12px; }
+    .status-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--coral); }
+    .status-dot.good { background: #4caa6f; }
+    .hero { display: grid; grid-template-columns: 1.25fr .75fr; gap: 36px; align-items: end; margin-bottom: 34px; }
+    h1 { max-width: 700px; margin: 0; font-size: clamp(42px, 7vw, 82px); line-height: .92; letter-spacing: -.04em; font-weight: 400; }
+    .hero-copy { margin: 20px 0 0; max-width: 520px; color: var(--muted); font-size: 18px; }
+    .signal { padding: 22px; color: #f4f1e9; background: var(--green); box-shadow: var(--shadow); }
+    .signal-label { color: var(--lime); font: 700 11px Arial, sans-serif; letter-spacing: .14em; text-transform: uppercase; }
+    .signal strong { display: block; margin-top: 22px; font-size: 42px; line-height: 1; font-weight: 400; }
+    .signal small { display: block; margin-top: 8px; color: #cbd9c8; font-family: Arial, sans-serif; }
+    .grid { display: grid; grid-template-columns: .8fr 1.2fr; gap: 18px; }
+    .wide { grid-column: 1 / -1; }
+    .panel { padding: 24px; background: rgba(255,253,248,.86); border: 1px solid var(--line); box-shadow: var(--shadow); }
+    .panel h2 { margin: 0 0 5px; font-size: 23px; font-weight: 400; }
+    .panel p { margin: 0 0 20px; color: var(--muted); }
+    label { display: block; margin: 16px 0 7px; color: var(--muted); font: 700 11px Arial, sans-serif; letter-spacing: .1em; text-transform: uppercase; }
+    input, select { width: 100%; padding: 12px 13px; color: var(--ink); background: #fff; border: 1px solid var(--line); border-radius: 2px; outline: none; }
+    input:focus, select:focus { border-color: var(--green); box-shadow: 0 0 0 3px rgba(36,92,73,.12); }
+    .actions { display: flex; gap: 10px; margin-top: 20px; }
+    .button { border: 0; border-radius: 2px; padding: 12px 17px; color: #fff; background: var(--green); font: 700 13px Arial, sans-serif; }
+    .button:hover { background: var(--green-dark); }
+    .button.secondary { color: var(--green-dark); background: var(--lime); }
+    .button:disabled { cursor: wait; opacity: .6; }
+    .answer-wrap { margin-top: 22px; padding-top: 18px; border-top: 1px solid var(--line); }
+    .answer-label { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; color: var(--green-dark); font: 700 11px Arial, sans-serif; letter-spacing: .1em; text-transform: uppercase; }
+    .answer-state { color: var(--muted); font-weight: 400; letter-spacing: 0; text-transform: none; }
+    .answer { min-height: 180px; white-space: pre-wrap; color: var(--ink); font-size: 18px; }
+    .answer.live::after { display: inline-block; width: 7px; height: 1em; margin-left: 5px; vertical-align: -2px; background: var(--coral); content: ''; animation: blink .8s steps(2, start) infinite; }
+    @keyframes blink { 50% { opacity: 0; } }
+    .placeholder { color: var(--muted); }
+    .sources, .indexed-list { display: grid; gap: 8px; margin-top: 22px; padding-top: 18px; border-top: 1px solid var(--line); }
+    .source { display: flex; justify-content: space-between; gap: 12px; padding: 10px 0; font-family: Arial, sans-serif; font-size: 13px; }
+    .source span:last-child { color: var(--muted); text-align: right; }
+    .indexed-group { display: grid; gap: 5px; }
+    .indexed-group strong { color: var(--green-dark); font: 700 11px Arial, sans-serif; letter-spacing: .1em; text-transform: uppercase; }
+    .indexed-file { display: flex; justify-content: space-between; gap: 12px; padding: 8px 0; font-family: Arial, sans-serif; font-size: 13px; }
+    .indexed-file span:last-child { color: var(--muted); }
+    .notice { margin-top: 16px; padding: 11px 13px; color: var(--muted); background: #f1eee5; font-family: Arial, sans-serif; font-size: 13px; }
+    .notice.error { color: #913e2b; background: #f8dfd7; }
+    @media (max-width: 760px) { .shell { width: min(100% - 24px, 620px); padding-top: 18px; } .topbar { margin-bottom: 34px; } .hero, .grid { grid-template-columns: 1fr; } h1 { font-size: 56px; } .signal { order: -1; } }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <header class="topbar">
+      <div class="brand"><span class="mark">R</span><span>Local RAG Desk</span></div>
+      <div class="status"><span class="status-dot" id="statusDot"></span><span id="statusText">Checking local services...</span></div>
+    </header>
+
+    <section class="hero">
+      <div>
+        <h1>Ask your documents better questions.</h1>
+        <p class="hero-copy">A private workspace for searching indexed files and getting grounded answers from your local knowledge base.</p>
+      </div>
+      <aside class="signal"><span class="signal-label">Indexed context</span><strong id="chunkCount">--</strong><small>chunks available across your buckets</small></aside>
+    </section>
+
+    <section class="grid">
+      <section class="panel">
+        <h2>Prepare a bucket</h2>
+        <p>Upload files or re-index a bucket folder. Re-indexing replaces that bucket's old records.</p>
+        <label for="ingestBucket">Document bucket</label>
+        <select id="ingestBucket"><option value="bucket_1">Bucket 1</option><option value="bucket_2">Bucket 2</option></select>
+        <div class="actions"><button class="button" id="ingestButton">Re-index bucket</button><button class="button secondary" id="refreshButton">Refresh status</button></div>
+        <div class="actions"><button class="button" id="uploadBucket1Button">Upload to Bucket 1</button><button class="button" id="uploadBucket2Button">Upload to Bucket 2</button></div>
+        <input id="uploadBucket1Input" type="file" multiple accept=".pdf,.docx,.txt,.csv,.xlsx,.xls,.png,.jpg,.jpeg" hidden>
+        <input id="uploadBucket2Input" type="file" multiple accept=".pdf,.docx,.txt,.csv,.xlsx,.xls,.png,.jpg,.jpeg" hidden>
+        <div class="notice" id="ingestNotice">Ready to index local documents.</div>
+      </section>
+
+      <section class="panel">
+        <h2>Query the knowledge base</h2>
+        <p>Searches stored chunks. Sources below are only the files used for this question.</p>
+        <label for="question">Your question</label>
+        <input id="question" placeholder="What is the annual leave policy?" autocomplete="off">
+        <label for="queryBucket">Search scope</label>
+        <select id="queryBucket"><option value="">All buckets</option><option value="bucket_1">Bucket 1</option><option value="bucket_2">Bucket 2</option></select>
+        <div class="actions"><button class="button" id="askButton">Ask question</button></div>
+        <div class="notice" id="queryNotice">Index documents before asking your first question.</div>
+        <div class="answer-wrap"><div class="answer-label"><span>Response</span><span class="answer-state" id="answerState">Waiting for a question</span></div><div class="answer placeholder" id="answer">Your answer will appear here.</div></div>
+        <div class="sources" id="sources" hidden></div>
+      </section>
+      <section class="panel wide">
+        <h2>Indexed files</h2>
+        <p>Every file listed here has at least one chunk stored in ChromaDB. This is different from sources returned for one question.</p>
+        <div class="indexed-list" id="indexedFiles"><span class="placeholder">Loading indexed files...</span></div>
+      </section>
+    </section>
+  </main>
+  <script>
+    const $ = (id) => document.getElementById(id);
+    const setNotice = (element, message, error = false) => { element.textContent = message; element.classList.toggle('error', error); };
+    const readResponse = async (response) => { const contentType = response.headers.get('content-type') || ''; if (contentType.includes('application/json')) return response.json(); const text = await response.text(); return {detail: text || `Request failed (${response.status})`}; };
+    const request = async (url, options) => { const response = await fetch(url, options); const data = await readResponse(response); if (!response.ok) throw new Error(data.detail || 'Request failed'); return data; };
+
+    async function refreshSources() {
+      const data = await request('/documents/sources');
+      const groups = {bucket_1: [], bucket_2: []};
+      data.sources.forEach(source => { if (groups[source.bucket]) groups[source.bucket].push(source); });
+      $('indexedFiles').innerHTML = Object.entries(groups).map(([bucket, sources]) => `
+        <div class="indexed-group"><strong>${bucket.replace('_', ' ')}</strong>${sources.length ? sources.map(source => `<div class="indexed-file"><span>${source.document}</span><span>${source.file_type || 'file'}</span></div>`).join('') : '<span class="placeholder">No indexed files</span>'}</div>
+      `).join('');
+    }
+
+    async function refreshStatus() {
+      try {
+        const [health, documents] = await Promise.all([request('/health'), request('/documents')]);
+        $('chunkCount').textContent = documents.total_chunks;
+        $('statusDot').classList.toggle('good', health.ollama_connected);
+        $('statusText').textContent = health.ollama_connected ? `Ollama online · ${health.ollama_model}` : 'Ollama is offline';
+        await refreshSources();
+      } catch (error) { $('statusText').textContent = 'API unavailable'; $('statusDot').classList.remove('good'); $('indexedFiles').innerHTML = '<span class="placeholder">Could not load indexed files.</span>'; }
+    }
+
+    $('refreshButton').addEventListener('click', refreshStatus);
+    $('ingestButton').addEventListener('click', async () => {
+      const button = $('ingestButton'); button.disabled = true; setNotice($('ingestNotice'), 'Indexing documents...');
+      try { const data = await request('/ingest', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({bucket: $('ingestBucket').value}) }); setNotice($('ingestNotice'), `${data.message}`); await refreshStatus(); }
+      catch (error) { setNotice($('ingestNotice'), error.message, true); } finally { button.disabled = false; }
+    });
+
+    async function uploadToBucket(bucket, input, button) {
+      const files = [...input.files]; if (!files.length) return;
+      button.disabled = true; setNotice($('ingestNotice'), `Uploading ${files.length} file(s) to ${bucket}...`);
+      try {
+        const formData = new FormData(); files.forEach(file => formData.append('files', file));
+        const data = await request(`/upload/${bucket}`, { method: 'POST', body: formData });
+        setNotice($('ingestNotice'), data.message); await refreshStatus();
+      } catch (error) { setNotice($('ingestNotice'), error.message, true); }
+      finally { button.disabled = false; input.value = ''; }
+    }
+
+    $('uploadBucket1Button').addEventListener('click', () => $('uploadBucket1Input').click());
+    $('uploadBucket2Button').addEventListener('click', () => $('uploadBucket2Input').click());
+    $('uploadBucket1Input').addEventListener('change', () => uploadToBucket('bucket_1', $('uploadBucket1Input'), $('uploadBucket1Button')));
+    $('uploadBucket2Input').addEventListener('change', () => uploadToBucket('bucket_2', $('uploadBucket2Input'), $('uploadBucket2Button')));
+
+    $('askButton').addEventListener('click', async () => {
+      const question = $('question').value.trim(); if (!question) { setNotice($('queryNotice'), 'Enter a question first.', true); return; }
+      const button = $('askButton'); const answer = $('answer'); button.disabled = true; answer.textContent = ''; answer.classList.remove('placeholder'); answer.classList.add('live'); $('sources').hidden = true; $('answerState').textContent = 'Searching...'; setNotice($('queryNotice'), 'Finding the best document context...');
+      try {
+        const bucket = $('queryBucket').value || null;
+        const response = await fetch('/query/stream', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({question, bucket, top_k: 5}) });
+        if (!response.ok) { const data = await readResponse(response); throw new Error(data.detail || 'Request failed'); }
+        if (!response.body) throw new Error('Streaming is not supported by this browser.');
+        const reader = response.body.getReader(); const decoder = new TextDecoder(); let buffer = '';
+        while (true) {
+          const {value, done} = await reader.read(); buffer += decoder.decode(value || new Uint8Array(), {stream: !done});
+          const lines = buffer.split('\n'); buffer = lines.pop();
+          for (const line of lines) {
+            if (!line.trim()) continue;
+            const event = JSON.parse(line);
+            if (event.type === 'status') { $('answerState').textContent = event.content; setNotice($('queryNotice'), event.content); }
+            if (event.type === 'sources') { $('sources').innerHTML = '<strong>Sources</strong>' + event.sources.map(source => `<div class="source"><span>${source.document}</span><span>${source.bucket || 'all documents'}${source.page ? ` · page ${source.page}` : ''}</span></div>`).join(''); $('sources').hidden = event.sources.length === 0; $('answerState').textContent = 'Writing answer...'; setNotice($('queryNotice'), 'Answer is being generated from retrieved documents...'); }
+            if (event.type === 'token') answer.textContent += event.content;
+            if (event.type === 'error') throw new Error(event.detail);
+            if (event.type === 'done') { if (!answer.textContent) answer.textContent = event.answer || 'No relevant documents found.'; $('answerState').textContent = 'Complete'; setNotice($('queryNotice'), 'Answer grounded in retrieved documents.'); }
+          }
+          if (done) break;
+        }
+      } catch (error) { answer.textContent = 'No answer returned.'; answer.classList.add('placeholder'); $('answerState').textContent = 'Unavailable'; setNotice($('queryNotice'), error.message, true); } finally { answer.classList.remove('live'); button.disabled = false; }
+    });
+    $('question').addEventListener('keydown', (event) => { if (event.key === 'Enter') $('askButton').click(); });
+    refreshStatus();
+  </script>
+</body>
+</html>
