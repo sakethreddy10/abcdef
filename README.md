@@ -427,3 +427,5 @@ Obvious mismatches are rejected before the file is saved or parsed.
 ### `Logging`
 Application logs appear in the terminal and are also written to `logs/app.log`.
 The `logs/` directory is created automatically when the application starts.
+
+# Code update

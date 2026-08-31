@@ -39,3 +39,5 @@ ollama==0.3.3              # Python client for the local Ollama server
 
 # ── Data Validation ───────────────────────────────────────────────────────────
 pydantic==2.9.2            # FastAPI uses this for request/response schemas
+
+# Code update
