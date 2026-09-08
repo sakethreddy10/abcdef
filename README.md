@@ -1,4 +1,4 @@
-# Enterprise RAG Assessment Project
+# RAG  Project
 
 A simple, readable, and debuggable **Retrieval-Augmented Generation (RAG)** system
 built with Python, FastAPI, ChromaDB, and a local Ollama LLM.
