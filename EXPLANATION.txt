@@ -1,0 +1,143 @@
+RAG PROJECT - FILE EXPLANATION GUIDE
+=====================================
+
+This guide describes the current files and behavior in the GitHub-current
+rag_project copy.
+
+1. APPLICATION
+==============
+
+app/main.py
+    Creates the FastAPI application, enables permissive CORS, registers the
+    routes, serves the static browser page, and configures console/file logs.
+
+app/config.py
+    Loads .env values and defines Ollama settings, ChromaDB location and
+    collection, embedding model, chunk size/overlap, retrieval defaults, OCR
+    path, and bucket paths. Current defaults include:
+    - OLLAMA_MODEL=qwen2.5
+    - EMBEDDING_MODEL=BAAI/bge-base-en-v1.5
+    - CHUNK_SIZE=450
+    - CHUNK_OVERLAP=80
+    - RETRIEVAL_TOP_K=3
+
+app/api/routes.py
+    Defines the public API: /, /health, /documents, /ingest,
+    /upload/{bucket}, /documents/sources, /documents/chunks, /query, and
+    /query/stream. Service objects are initialized when this module loads.
+
+app/models/schemas.py
+    Defines Pydantic models for query, ingestion, health, document statistics,
+    and source-citation request/response validation. Query top_k is limited to
+    1 through 20.
+
+2. PARSERS
+==========
+
+app/parsers/base_parser.py
+    Defines the parser interface.
+
+app/parsers/pdf_parser.py
+    Extracts PDF text page by page with PyMuPDF and preserves page numbers.
+
+app/parsers/docx_parser.py
+    Extracts paragraphs and table content from DOCX files.
+
+app/parsers/text_parser.py
+    Reads plain text files.
+
+app/parsers/csv_parser.py
+    Reads CSV files with pandas and produces one normalized document containing
+    a "Columns:" header followed by labeled row values.
+
+app/parsers/excel_parser.py
+    Reads XLSX/XLS worksheets with pandas and preserves worksheet information.
+
+app/parsers/image_parser.py
+    Uses Pillow and pytesseract for OCR on PNG/JPG/JPEG files.
+
+3. SERVICES
+===========
+
+app/services/ingestion_service.py
+    Maps file extensions to parsers, parses individual files, scans bucket
+    directories, computes SHA-256 fingerprints, and supports incremental
+    ingestion.
+
+app/services/chunking_service.py
+    Validates chunk_size and overlap, splits normal text near newline or
+    sentence boundaries with overlap, and provides split_csv_text(). CSV
+    chunks preserve the first line as a header while grouping complete rows.
+    chunk_documents() selects the CSV strategy only for file_type == 'csv'.
+
+app/services/embedding_service.py
+    Loads SentenceTransformers and creates embeddings for document chunks or
+    one query. BAAI/bge-base-en-v1.5 produces 768-dimensional vectors.
+
+app/services/vector_store_service.py
+    Owns the persistent ChromaDB collection. It stores text, embeddings,
+    source/page/file_type/bucket/chunk_index metadata, and document hashes.
+    It supports bucket/source filtering, inspection, counts, deterministic IDs,
+    fingerprint lookup, and deletion of replaced or removed sources. Cosine
+    distance is used; lower distance means closer vectors.
+
+app/services/retrieval_service.py
+    Embeds questions and retrieves semantic ChromaDB candidates. When the
+    optional rank_bm25 package is installed, it also performs keyword search
+    and combines both lists using Reciprocal Rank Fusion. It then reranks the
+    fused candidates with cross-encoder/ms-marco-MiniLM-L-2-v2. If BM25 is
+    unavailable or fails, semantic-only retrieval remains the fallback.
+
+app/services/rag_service.py
+    Builds the context prompt, calls Ollama, deduplicates source citations,
+    and exposes both normal and streaming query flows. The model is instructed
+    to answer only from retrieved context and cite source files/pages.
+
+app/services/llm_service.py
+    Communicates with the configured local Ollama server, supports normal and
+    streaming generation, applies temperature and OLLAMA_MAX_TOKENS, and turns
+    connection/model errors into clear exceptions.
+
+4. DATA AND STORAGE
+===================
+
+data/bucket_1 and data/bucket_2
+    Input document directories. Bucket metadata is stored with every chunk and
+    is used to isolate searches.
+
+vectorstore
+    Persistent ChromaDB data. Do not edit these database files manually.
+
+logs
+    Application log output, including parsing, indexing, retrieval, and LLM
+    diagnostics.
+
+5. TESTS AND ROOT FILES
+=======================
+
+tests/
+    Automated tests for the current implementation. Run them with pytest from
+    the rag_project directory.
+
+requirements.txt
+    Pins the runtime dependencies. rank_bm25 is optional in the current code;
+    retrieval falls back to semantic search when it is not installed.
+
+README.md
+    Setup, architecture, ingestion, query, endpoint, bucket, and troubleshooting
+    documentation. Verify endpoint examples against API_EXPLANATION.txt when
+    changing routes.
+
+.gitignore
+    Excludes local environments, caches, logs, vector-store artifacts, and
+    local configuration where configured.
+
+6. INDEXING SUMMARY
+===================
+
+    files -> parser -> normalized documents -> chunks -> embeddings
+           -> ChromaDB text/vectors/metadata
+
+Ingestion is incremental for directory scans: unchanged fingerprints are
+skipped, changed sources are replaced, and removed files are deleted. Uploads
+replace only the uploaded source files.

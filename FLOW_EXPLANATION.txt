@@ -1,0 +1,160 @@
+RAG PROJECT QUERY FLOW EXPLANATION
+==================================
+
+This document describes the current question-answering path.
+
+Example request:
+
+    POST /query
+
+    {
+      "question": "Explain swarm management",
+      "bucket": "bucket_1",
+      "top_k": 3
+    }
+
+1. STARTUP
+==========
+
+app/main.py creates the FastAPI application and registers routes. Importing
+app.api.routes creates the shared EmbeddingService, VectorStoreService,
+RetrievalService, LLMService, and RAGService objects.
+
+The default models are:
+
+    Embedding: BAAI/bge-base-en-v1.5
+    Answer:    qwen2.5
+    Reranker:  cross-encoder/ms-marco-MiniLM-L-2-v2
+
+The answer model can be changed with OLLAMA_MODEL in .env.
+
+2. VALIDATE THE REQUEST
+=======================
+
+FastAPI validates the JSON body with QueryRequest. question is required,
+bucket is optional, and top_k must be between 1 and 20. Invalid input returns
+HTTP 422.
+
+3. CHECK CHROMADB
+=================
+
+The route checks vector_store.count(). If no chunks are stored, it returns
+HTTP 400 and asks the caller to run /ingest or /upload/{bucket} first.
+
+4. RETRIEVE CANDIDATES
+======================
+
+RAGService calls RetrievalService.retrieve(). The question is converted to a
+768-dimensional embedding by EmbeddingService.embed_one().
+
+RetrievalService asks ChromaDB for max(top_k * 2, top_k) semantic candidates.
+If a bucket was supplied, ChromaDB applies this metadata filter:
+
+    {"bucket": "bucket_1"}
+
+Without a bucket, both buckets may be searched.
+
+When rank_bm25 is installed, RetrievalService also loads all documents in the
+selected bucket, tokenizes them, scores them with BM25, and combines semantic
+and keyword rankings with Reciprocal Rank Fusion. The current requirements do
+not require rank_bm25, so semantic-only retrieval is a supported fallback.
+
+5. RERANK
+=========
+
+The candidate list is scored by the local CrossEncoder model
+cross-encoder/ms-marco-MiniLM-L-2-v2. The highest scoring top_k chunks continue
+to prompt construction. The reranker is loaded lazily on the first query and
+then reused.
+
+6. BUILD THE PROMPT
+===================
+
+RAGService formats each selected chunk as:
+
+    [Source: filename | Page: page | Bucket: bucket]
+    chunk text
+
+It places these entries between START OF CONTEXT and END OF CONTEXT, followed
+by the user's question.
+
+7. GENERATE THE ANSWER
+======================
+
+LLMService sends the context prompt and RAG_SYSTEM_PROMPT to Ollama. The
+system prompt instructs the model to use only supplied context, avoid guessing,
+answer directly, and cite the supporting source filename and page where
+available. Temperature defaults to 0.2 for RAG calls and output length is
+controlled by OLLAMA_MAX_TOKENS.
+
+If Ollama cannot be reached, normal /query returns HTTP 503. A missing Ollama
+model must be pulled with the model name configured in .env, for example:
+
+    ollama pull qwen2.5
+
+8. CREATE CITATIONS
+===================
+
+RAGService removes duplicate source/page/bucket combinations and returns
+citations containing document, page, bucket, and file_type. The internal
+retrieved_chunks list is not included in the public QueryResponse.
+
+9. RETURN THE RESPONSE
+======================
+
+The route validates the final result with QueryResponse and returns:
+
+    {
+      "question": "Explain swarm management",
+      "answer": "...",
+      "bucket": "bucket_1",
+      "sources": [
+        {
+          "document": "guide.pdf",
+          "page": "2",
+          "bucket": "bucket_1",
+          "file_type": ".pdf"
+        }
+      ]
+    }
+
+10. STREAMING FLOW
+==================
+
+POST /query/stream performs the same retrieval and prompting steps. It first
+emits a status event, then RAGService emits source metadata, generated token
+events, and a final done event. The response is newline-delimited JSON with
+media type application/x-ndjson.
+
+COMPLETE FLOW
+=============
+
+    user question
+        -> POST /query or /query/stream
+        -> QueryRequest validation
+        -> ensure ChromaDB is not empty
+        -> embed question
+        -> semantic search with optional bucket filter
+        -> optional BM25 keyword search
+        -> RRF fusion when BM25 is available
+        -> CrossEncoder reranking
+        -> select top_k chunks
+        -> build grounded prompt
+        -> call Ollama qwen2.5
+        -> deduplicate source citations
+        -> return JSON or streaming events
+
+INDEXING FLOW
+=============
+
+    bucket files
+        -> extension-based parser
+        -> normalized documents
+        -> SHA-256 fingerprint comparison for directory ingestion
+        -> boundary-aware or CSV row-aware chunking
+        -> sentence-transformer embeddings
+        -> ChromaDB storage with metadata and document hash
+
+The current API does not expose a /retrieve endpoint. Use
+GET /documents/chunks to inspect stored records and POST /query to exercise
+retrieval as part of the complete RAG pipeline.

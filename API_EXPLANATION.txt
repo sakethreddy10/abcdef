@@ -1,0 +1,181 @@
+RAG PROJECT API EXPLANATION
+===========================
+
+The FastAPI application is started from app.main and is normally available at:
+
+    http://127.0.0.1:8000
+
+Interactive documentation is available at:
+
+    http://127.0.0.1:8000/docs
+
+The application supports two logical document buckets: bucket_1 and bucket_2.
+A bucket can be selected during ingestion, upload, inspection, and querying.
+
+1. GET /
+========
+Serves app/static/index.html, the browser user interface. It does not run a
+RAG query itself.
+
+2. GET /health
+==============
+Checks whether Ollama is reachable and reports the configured model, embedding
+model, and current ChromaDB chunk count.
+
+Example response:
+
+    {
+      "status": "healthy",
+      "ollama_connected": true,
+      "ollama_model": "qwen2.5",
+      "vector_store_chunks": 120,
+      "embedding_model": "BAAI/bge-base-en-v1.5"
+    }
+
+The status is healthy when Ollama responds and degraded when it does not.
+
+3. GET /documents
+=================
+Returns vector-store statistics:
+
+    {
+      "total_chunks": 120,
+      "collection_name": "rag_documents",
+      "embedding_dimension": 768
+    }
+
+4. POST /ingest
+===============
+Reads supported files from a bucket directory, parses them, chunks the text,
+creates embeddings, and stores the results in ChromaDB.
+
+Request:
+
+    {
+      "bucket": "bucket_1",
+      "directory_path": null
+    }
+
+Supported extensions are .pdf, .docx, .txt, .csv, .xlsx, .xls, .png, .jpg,
+and .jpeg. If directory_path is omitted, the configured bucket path is used.
+
+Directory ingestion is incremental. SHA-256 file fingerprints are compared
+with fingerprints stored in ChromaDB. Unchanged files are skipped, changed
+files have their old chunks replaced, and indexed files removed from the
+directory are deleted from the bucket index.
+
+CSV documents are parsed with a column header and are chunked by complete rows
+so that each CSV chunk keeps the header. Other formats use boundary-aware,
+overlapping character chunks.
+
+Returns an IngestResponse containing status, bucket, documents_parsed,
+chunks_stored, and message. Invalid buckets return 400; missing directories
+return 404; processing failures return 500.
+
+5. POST /upload/{bucket}
+========================
+Accepts multipart/form-data with one or more files in the field named files.
+
+Example:
+
+    curl.exe -X POST "http://127.0.0.1:8000/upload/bucket_1" `
+      -F "files=@C:\path\to\document.pdf"
+
+The endpoint validates the extension and reported MIME type, saves the file,
+parses it, chunks and embeds it, removes old chunks for the uploaded source,
+and stores the replacement chunks. Other files already indexed in the bucket
+are preserved. Uploading an unchanged file skips reparsing.
+
+6. GET /documents/sources
+=========================
+Returns unique indexed source files, including document, bucket, and file_type.
+It returns source metadata, not complete chunk text.
+
+7. GET /documents/chunks
+=======================
+Returns stored chunks for inspection and debugging.
+
+Useful query parameters:
+
+    /documents/chunks?limit=20&offset=0
+    /documents/chunks?bucket=bucket_1
+    /documents/chunks?source=filename.pdf
+    /documents/chunks?include_embeddings=true
+
+The source filter expects an exact indexed filename. Invalid buckets return
+400. A source with no indexed chunks returns 404.
+
+8. POST /query
+==============
+Runs the complete retrieval-augmented generation pipeline.
+
+Request:
+
+    {
+      "question": "What is the annual leave policy?",
+      "bucket": "bucket_1",
+      "top_k": 5
+    }
+
+question is required. bucket is optional; when omitted, both buckets can be
+searched. top_k defaults to 5 and must be between 1 and 20.
+
+The route requires a non-empty vector store, retrieves semantic and optional
+BM25 candidates, fuses them with Reciprocal Rank Fusion when BM25 is available,
+reranks them with CrossEncoder, and sends the final context to Ollama.
+
+Example response:
+
+    {
+      "question": "What is the annual leave policy?",
+      "answer": "...",
+      "bucket": "bucket_1",
+      "sources": [
+        {
+          "document": "employee_handbook.docx",
+          "page": "1",
+          "bucket": "bucket_1",
+          "file_type": ".docx"
+        }
+      ]
+    }
+
+A 400 response means the vector store is empty. Invalid request fields return
+422. Ollama connection failures return 503, and other processing failures
+return 500.
+
+9. POST /query/stream
+=====================
+Runs the same retrieval and answer-generation process as /query and returns
+newline-delimited JSON with content type application/x-ndjson.
+
+Events may include:
+
+    {"type":"status","content":"Searching indexed context..."}
+    {"type":"sources","sources":[]}
+    {"type":"token","content":"Answer text"}
+    {"type":"done","answer":"Final answer","sources":[]}
+    {"type":"error","detail":"..."}
+
+The browser uses this endpoint to display generated answer tokens as they
+arrive. It does not change indexing or retrieval behavior.
+
+HOW THE ENDPOINTS WORK TOGETHER
+===============================
+
+    POST /ingest or POST /upload/{bucket}
+        -> parse documents
+        -> create format-aware chunks
+        -> create embeddings
+        -> store chunks and metadata in ChromaDB
+
+    POST /query or POST /query/stream
+        -> embed the question
+        -> retrieve semantic and optional keyword candidates
+        -> fuse and rerank candidates
+        -> prompt Ollama
+        -> return answer and deduplicated source citations
+
+There is no /retrieve or /documents/stats endpoint in the current routes.py.
+Use GET /documents/chunks to inspect stored chunks and POST /query to test the
+full retrieval path.
