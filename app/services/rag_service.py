@@ -87,7 +87,7 @@ class RAGService:
             answer = self.llm.generate(
                 prompt=prompt,
                 system_prompt=RAG_SYSTEM_PROMPT,
-                temperature=0.2,
+                temperature=0.3,
             )
         except Exception as e:
             logger.error(f"LLM generation failed: {e}")
@@ -136,7 +136,7 @@ class RAGService:
         for token in self.llm.stream_generate(
             prompt=prompt,
             system_prompt=RAG_SYSTEM_PROMPT,
-            temperature=0.2,
+            temperature=0.3,
         ):
             answer_parts.append(token)
             yield {"type": "token", "content": token}

@@ -15,11 +15,12 @@ class CSVParser(BaseParser):
         if df.empty:
             logger.warning(f'CSV file is empty: {source_name}')
             return []
+        header = "Columns: " + " | ".join(str(column) for column in df.columns)
         row_texts = []
         for _, row in df.iterrows():
             row_text = ' | '.join((f'{col}: {val}' for col, val in row.items()))
             row_texts.append(row_text)
-        full_text = '\n'.join(row_texts)
+        full_text = '\n'.join([header, *row_texts])
         logger.info(f'  → Converted {len(df)} row(s) from {source_name}')
         return [{'text': full_text, 'source': source_name, 'page': None, 'file_type': 'csv', 'bucket': bucket}]
 
